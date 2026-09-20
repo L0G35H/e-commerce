@@ -1,0 +1,6 @@
+{
+  "name": "IntelliCart",
+  "description": "Premium intelligent digital commerce platform with curated catalog, product details, interactive cart, multi-step checkout, and order tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
