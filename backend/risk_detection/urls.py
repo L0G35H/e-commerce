@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import RiskAssessmentViewSet
 
 router = DefaultRouter()
+router.register('assessments', RiskAssessmentViewSet, basename='risk-assessments')
 router.register('', RiskAssessmentViewSet, basename='risk')
 
 urlpatterns = [

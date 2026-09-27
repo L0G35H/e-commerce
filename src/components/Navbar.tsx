@@ -18,6 +18,16 @@ import {
 import { LOGO_URL, USER_AVATAR } from '../data/mockData';
 import { ScreenType, Product } from '../types';
 
+export interface CurrentUser {
+  id?: number | string;
+  name?: string;
+  email?: string;
+  role?: string;
+  is_staff?: boolean;
+  is_superuser?: boolean;
+  is_admin?: boolean;
+}
+
 interface NavbarProps {
   currentScreen: ScreenType;
   onNavigate: (screen: ScreenType, categoryId?: string, productId?: string) => void;
@@ -30,6 +40,8 @@ interface NavbarProps {
   onChangeLocation: () => void;
   isLoggedIn: boolean;
   onToggleLogin: () => void;
+  currentUser?: CurrentUser | null;
+  isAdmin?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -44,10 +56,20 @@ export const Navbar: React.FC<NavbarProps> = ({
   onChangeLocation,
   isLoggedIn,
   onToggleLogin,
+  currentUser,
+  isAdmin = false,
 }) => {
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const isUserAdmin = Boolean(
+    isAdmin ||
+    currentUser?.role === 'ADMIN' ||
+    currentUser?.is_staff ||
+    currentUser?.is_superuser ||
+    currentUser?.is_admin
+  );
 
   const filteredSuggestions = searchQuery.trim()
     ? products.filter(p => 
@@ -262,8 +284,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <div className="px-4 py-2 border-b border-slate-100">
                     <p className="text-xs text-slate-400">Signed in as</p>
-                    <p className="text-sm font-semibold text-slate-900 truncate">Sarah Jenkins</p>
-                    <p className="text-[11px] text-blue-600 font-medium">sarah.j@example.com</p>
+                    <p className="text-sm font-semibold text-slate-900 truncate">{currentUser?.name || currentUser?.email || 'User'}</p>
+                    <p className="text-[11px] text-blue-600 font-medium">{currentUser?.email || ''}</p>
                   </div>
 
                   <button
@@ -310,16 +332,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                     My Account & Addresses
                   </button>
 
-                  <button
-                    onClick={() => {
-                      onNavigate('admin-dashboard');
-                      setShowUserMenu(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-xs text-purple-700 hover:bg-purple-50 flex items-center gap-2.5 font-bold border-t border-slate-100"
-                  >
-                    <SlidersHorizontal className="w-4 h-4 text-purple-600" />
-                    Admin Control Center
-                  </button>
+                  {/* Admin Control Center - only accessible by and visible to admin/staff accounts */}
+                  {isUserAdmin && (
+                    <button
+                      onClick={() => {
+                        onNavigate('admin-dashboard');
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-xs text-purple-700 hover:bg-purple-50 flex items-center gap-2.5 font-bold border-t border-slate-100"
+                    >
+                      <SlidersHorizontal className="w-4 h-4 text-purple-600" />
+                      Admin Control Center
+                    </button>
+                  )}
 
                   <div className="border-t border-slate-100 mt-1"></div>
 

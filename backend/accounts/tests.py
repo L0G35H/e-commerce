@@ -34,3 +34,35 @@ class AccountsTestCase(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertIn('access', response.data)
+
+    def test_admin_control_center_customer_forbidden(self):
+        customer = User.objects.create_user(
+            username='customer_sarah',
+            email='sarah.jenkins@example.com',
+            password='password123',
+            role=User.Role.CUSTOMER,
+            is_staff=False
+        )
+        self.client.force_authenticate(user=customer)
+        response = self.client.get('/admin-control-center/')
+        self.assertEqual(response.status_code, 403)
+
+        response_api = self.client.get('/api/v1/admin-control-center/')
+        self.assertEqual(response_api.status_code, 403)
+
+    def test_admin_control_center_admin_allowed(self):
+        admin = User.objects.create_user(
+            username='admin_user',
+            email='admin@intellicart.com',
+            password='password123',
+            role=User.Role.ADMIN,
+            is_staff=True
+        )
+        self.client.force_authenticate(user=admin)
+        response = self.client.get('/admin-control-center/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['success'])
+
+        response_api = self.client.get('/api/v1/admin-control-center/')
+        self.assertEqual(response_api.status_code, 200)
+        self.assertTrue(response_api.data['success'])

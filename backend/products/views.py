@@ -91,21 +91,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         return perform_safe_product_delete(instance)
 
 
-class IsAdminOrStaffUser(permissions.BasePermission):
-    """
-    Restricts access to administrative or staff users.
-    """
-    message = "Permission denied: Only administrative or staff users are authorized to delete products."
-
-    def has_permission(self, request, view):
-        user = request.user
-        if not user or not user.is_authenticated:
-            return False
-        return bool(
-            user.is_staff or 
-            user.is_superuser or 
-            getattr(user, 'role', None) == 'ADMIN'
-        )
+from accounts.permissions import IsAdminOrStaffUser
 
 
 def perform_safe_product_delete(product):
@@ -209,7 +195,7 @@ def delete_product_view(request, product_id):
 class InventoryViewSet(viewsets.ModelViewSet):
     queryset = Inventory.objects.all()
     serializer_class = InventorySerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdminOrStaffUser]
 
     @action(detail=False, methods=['get'])
     def low_stock(self, request):

@@ -2,19 +2,20 @@ import os
 from pathlib import Path
 from datetime import timedelta
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 try:
     import dotenv
-    dotenv.load_dotenv()
+    dotenv.load_dotenv(BASE_DIR / '.env')
+    dotenv.load_dotenv(BASE_DIR.parent / '.env')
 except ImportError:
     pass
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-intellicart-major-project-secret-key-2026')
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
-
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',') if h.strip()]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -27,6 +28,7 @@ INSTALLED_APPS = [
     # Third-party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
 
     # Local IntelliCart apps
@@ -79,7 +81,7 @@ ASGI_APPLICATION = 'config.asgi.application'
 DB_ENGINE = os.environ.get('DB_ENGINE', 'sqlite')
 DB_NAME = os.environ.get('DB_NAME', 'intellicart_db')
 DB_USER = os.environ.get('DB_USER', 'intellicart_user')
-DB_PASSWORD = os.environ.get('DB_PASSWORD', 'intellicart_pass123')
+DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
 DB_HOST = os.environ.get('DB_HOST', 'localhost')
 DB_PORT = os.environ.get('DB_PORT', '3306')
 
@@ -138,7 +140,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
@@ -150,7 +151,7 @@ REST_FRAMEWORK = {
 
 # Simple JWT Settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,

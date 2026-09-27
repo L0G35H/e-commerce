@@ -18,6 +18,13 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.email} ({self.role})"
 
+    @property
+    def is_admin(self):
+        """
+        Returns True if user is an Admin by role or has Django staff/superuser flags.
+        """
+        return bool(self.role == self.Role.ADMIN or self.is_staff or self.is_superuser)
+
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')

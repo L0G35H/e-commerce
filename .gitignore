@@ -1,10 +1,65 @@
-node_modules/
-build/
-dist/
-coverage/
-.DS_Store
-*.log
-.env*
+# -----------------------------------------------------------------------------
+# Environment & Secret Files (DO NOT COMMIT SECRETS)
+# -----------------------------------------------------------------------------
+.env
+.env.*
+*.env
+backend/.env
 !.env.example
+!backend/.env.example
+
+# Local Agent & MCP Tool Configurations
+mcp_config.json
+.agents/
+
+# -----------------------------------------------------------------------------
+# Python, Django & Bytecode
+# -----------------------------------------------------------------------------
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.log
+
+# SQLite Database Files
+*.sqlite3
+db.sqlite3
+backend/db.sqlite3
+
+# Django Media & Collected Static Files
+media/
+staticfiles/
+
+# -----------------------------------------------------------------------------
+# Virtual Environments
+# -----------------------------------------------------------------------------
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# -----------------------------------------------------------------------------
+# Node & Frontend Build Artifacts
+# -----------------------------------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+build/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+
+# -----------------------------------------------------------------------------
+# OS & IDE Files
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project

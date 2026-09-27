@@ -6,11 +6,12 @@ from django.contrib.auth import get_user_model
 from orders.models import Order
 from products.models import Product, Category
 from risk_detection.models import RiskAssessment
+from accounts.permissions import IsAdminOrStaffUser
 
 User = get_user_model()
 
 class AnalyticsOverviewView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdminOrStaffUser]
 
     def get(self, request):
         total_revenue = Order.objects.aggregate(Sum('total'))['total__sum'] or 0.0

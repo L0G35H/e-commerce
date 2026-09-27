@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   Star,
   ShieldCheck,
+  ShieldAlert,
   Truck,
   RotateCcw,
   Headphones,
@@ -48,6 +49,7 @@ import {
 import { Navbar } from './components/Navbar';
 import { PRODUCTS, CATEGORIES, INITIAL_CART, INITIAL_ORDERS, LOGO_URL, USER_AVATAR } from './data/mockData';
 import { Product, CartItem, Order, ScreenType } from './types';
+import { authService } from './services/authService';
 
 export default function App() {
   // Navigation & State
@@ -70,8 +72,50 @@ export default function App() {
   const [showLocationModal, setShowLocationModal] = useState<boolean>(false);
   const [tempPincode, setTempPincode] = useState('');
 
-  // User Auth
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
+  // User Auth & Role State
+  const [currentUser, setCurrentUser] = useState<{
+    id?: number | string;
+    name: string;
+    email: string;
+    role: 'CUSTOMER' | 'ADMIN';
+    is_staff: boolean;
+    is_superuser: boolean;
+    is_admin: boolean;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem('intellicart_user');
+      const token = localStorage.getItem('intellicart_token');
+      if (token && saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          id: parsed.id,
+          name: parsed.first_name ? `${parsed.first_name} ${parsed.last_name || ''}`.trim() : (parsed.username || parsed.email || 'User'),
+          email: parsed.email || '',
+          role: parsed.role || 'CUSTOMER',
+          is_staff: Boolean(parsed.is_staff),
+          is_superuser: Boolean(parsed.is_superuser),
+          is_admin: Boolean(parsed.is_admin || parsed.role === 'ADMIN' || parsed.is_staff || parsed.is_superuser),
+        };
+      }
+    } catch {
+      // Fallback
+    }
+    return null;
+  });
+
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return Boolean(localStorage.getItem('intellicart_token') && localStorage.getItem('intellicart_user'));
+  });
+
+  const isUserAdmin = Boolean(
+    currentUser && (
+      currentUser.role === 'ADMIN' ||
+      currentUser.is_staff ||
+      currentUser.is_superuser ||
+      currentUser.is_admin
+    )
+  );
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Product Delete (Soft Delete)
@@ -106,9 +150,11 @@ export default function App() {
   });
 
   // Auth Form State
-  const [authEmail, setAuthEmail] = useState('sarah.jenkins@example.com');
-  const [authPassword, setAuthPassword] = useState('••••••••••••');
-  const [authName, setAuthName] = useState('Sarah Jenkins');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Trigger Toast
   const showToast = (msg: string) => {
@@ -116,6 +162,15 @@ export default function App() {
     setTimeout(() => {
       setToastMessage(null);
     }, 3000);
+  };
+
+  // Sign out handler
+  const handleLogout = async () => {
+    await authService.logout();
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+    showToast('Signed out successfully');
+    navigateTo('home');
   };
 
   // Handle Product Soft Delete
@@ -149,6 +204,10 @@ export default function App() {
 
   // Switch Screen Helper
   const navigateTo = (screen: ScreenType, categoryId?: string, productId?: string) => {
+    if (screen.startsWith('admin') && !isUserAdmin) {
+      showToast('Access denied: Administrator privileges required.');
+      return;
+    }
     if (categoryId) setSelectedCategoryId(categoryId);
     if (productId) {
       setSelectedProductId(productId);
@@ -351,7 +410,9 @@ export default function App() {
         selectedLocation={selectedLocation}
         onChangeLocation={() => setShowLocationModal(true)}
         isLoggedIn={isLoggedIn}
-        onToggleLogin={() => setIsLoggedIn(!isLoggedIn)}
+        onToggleLogin={handleLogout}
+        currentUser={currentUser}
+        isAdmin={isUserAdmin}
       />
 
       {/* Toast Banner */}
@@ -2014,16 +2075,51 @@ export default function App() {
                 </div>
               </div>
 
+              {authError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs px-3 py-2 rounded-xl">
+                  {authError}
+                </div>
+              )}
+
               <button
                 id="auth-sign-in-btn"
-                onClick={() => {
-                  setIsLoggedIn(true);
-                  showToast("Signed in successfully!");
-                  navigateTo('home');
+                disabled={authLoading}
+                onClick={async () => {
+                  setAuthError(null);
+                  if (!authEmail.trim() || !authPassword.trim()) {
+                    setAuthError('Please enter both email and password.');
+                    return;
+                  }
+                  setAuthLoading(true);
+                  try {
+                    const data = await authService.login(authEmail.trim(), authPassword);
+                    const user = data.user;
+                    if (user) {
+                      setCurrentUser({
+                        id: user.id,
+                        name: user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : (user.username || user.email || 'User'),
+                        email: user.email,
+                        role: user.role || 'CUSTOMER',
+                        is_staff: Boolean(user.is_staff),
+                        is_superuser: Boolean(user.is_superuser),
+                        is_admin: Boolean(user.is_admin || user.role === 'ADMIN' || user.is_staff || user.is_superuser),
+                      });
+                      setIsLoggedIn(true);
+                      showToast(`Signed in as ${user.first_name || user.email}`);
+                      setAuthEmail('');
+                      setAuthPassword('');
+                      navigateTo('home');
+                    }
+                  } catch (err: any) {
+                    const msg = err?.response?.data?.detail || err?.response?.data?.message || 'Invalid email or password.';
+                    setAuthError(msg);
+                  } finally {
+                    setAuthLoading(false);
+                  }
                 }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-3 rounded-xl transition shadow-lg shadow-blue-600/20"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-3 rounded-xl transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
               >
-                Sign In
+                {authLoading ? 'Signing in...' : 'Sign In'}
               </button>
 
               <div className="relative my-4 text-center">
@@ -2120,16 +2216,72 @@ export default function App() {
                 <span>I agree to IntelliCart Terms of Service & Privacy Policy</span>
               </div>
 
+              {authError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs px-3 py-2 rounded-xl">
+                  {authError}
+                </div>
+              )}
+
               <button
                 id="auth-register-btn"
-                onClick={() => {
-                  setIsLoggedIn(true);
-                  showToast("Account created successfully!");
-                  navigateTo('home');
+                disabled={authLoading}
+                onClick={async () => {
+                  setAuthError(null);
+                  if (!authEmail.trim() || !authPassword.trim()) {
+                    setAuthError('Please enter an email and password.');
+                    return;
+                  }
+                  if (authPassword.length < 6) {
+                    setAuthError('Password must be at least 6 characters.');
+                    return;
+                  }
+                  setAuthLoading(true);
+                  try {
+                    const nameParts = authName.trim().split(' ');
+                    const firstName = nameParts[0] || '';
+                    const lastName = nameParts.slice(1).join(' ') || '';
+                    const data = await authService.register({
+                      email: authEmail.trim(),
+                      username: authEmail.trim(),
+                      password: authPassword,
+                      confirm_password: authPassword,
+                      first_name: firstName,
+                      last_name: lastName,
+                    });
+                    const user = data.user;
+                    if (user) {
+                      setCurrentUser({
+                        id: user.id,
+                        name: user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : (user.username || user.email || 'User'),
+                        email: user.email,
+                        role: user.role || 'CUSTOMER',
+                        is_staff: Boolean(user.is_staff),
+                        is_superuser: Boolean(user.is_superuser),
+                        is_admin: Boolean(user.is_admin || user.role === 'ADMIN' || user.is_staff || user.is_superuser),
+                      });
+                      setIsLoggedIn(true);
+                      showToast(`Welcome to IntelliCart, ${user.first_name || user.email}!`);
+                      setAuthEmail('');
+                      setAuthPassword('');
+                      setAuthName('');
+                      navigateTo('home');
+                    }
+                  } catch (err: any) {
+                    const emailErr = err?.response?.data?.email;
+                    const passErr = err?.response?.data?.password;
+                    const msg = (Array.isArray(emailErr) ? emailErr[0] : emailErr) || 
+                                (Array.isArray(passErr) ? passErr[0] : passErr) || 
+                                err?.response?.data?.detail || 
+                                err?.response?.data?.message || 
+                                'Failed to create account. Please check your details.';
+                    setAuthError(msg);
+                  } finally {
+                    setAuthLoading(false);
+                  }
                 }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-3 rounded-xl transition shadow-lg shadow-blue-600/20"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-3 rounded-xl transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
               >
-                Create Account
+                {authLoading ? 'Creating Account...' : 'Create Account'}
               </button>
             </div>
 
@@ -2233,8 +2385,8 @@ export default function App() {
             <div className="bg-white rounded-3xl p-6 border border-slate-200 space-y-4 shadow-sm text-center">
               <img src={USER_AVATAR} alt="User Avatar" className="w-24 h-24 rounded-full mx-auto border-4 border-blue-100 object-cover" />
               <div>
-                <h3 className="font-extrabold text-slate-900 text-lg">Sarah Jenkins</h3>
-                <p className="text-xs text-slate-500">sarah.jenkins@example.com</p>
+                <h3 className="font-extrabold text-slate-900 text-lg">{currentUser?.name || 'My Account'}</h3>
+                <p className="text-xs text-slate-500">{currentUser?.email || ''}</p>
                 <span className="inline-block mt-2 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
                   IntelliClub Premier Member
                 </span>
@@ -2257,7 +2409,7 @@ export default function App() {
                 <h4 className="font-bold text-xs text-slate-800">Security Credentials</h4>
                 <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50 p-3 rounded-xl">
                   <span>Password last updated 14 days ago</span>
-                  <button onClick={() => showToast("Password reset link sent to sarah.j@example.com")} className="text-blue-600 font-bold hover:underline">Change Password</button>
+                  <button onClick={() => showToast(`Password reset link sent to ${currentUser?.email || 'your email'}`)} className="text-blue-600 font-bold hover:underline">Change Password</button>
                 </div>
               </div>
             </div>
@@ -2320,7 +2472,7 @@ export default function App() {
       {/* ========================================================================= */}
       {/* 13. ADMIN DASHBOARD & CONTROL CENTER                                      */}
       {/* ========================================================================= */}
-      {currentScreen.startsWith('admin') && (
+      {currentScreen.startsWith('admin') && isUserAdmin && (
         <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full space-y-8">
           
           {/* Admin Header */}
@@ -2640,6 +2792,33 @@ export default function App() {
               </div>
             </div>
           )}
+        </main>
+      )}
+
+      {/* 403 Permission Denied View for unauthorized access to Admin screens */}
+      {currentScreen.startsWith('admin') && !isUserAdmin && (
+        <main className="flex-1 max-w-2xl mx-auto px-4 sm:px-6 py-20 w-full text-center space-y-5">
+          <div className="w-16 h-16 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
+            <ShieldAlert className="w-8 h-8 text-rose-600" />
+          </div>
+          <div className="space-y-2">
+            <span className="bg-rose-100 text-rose-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              403 • Unauthorized Access
+            </span>
+            <h1 className="text-2xl font-extrabold text-slate-900">Admin Privileges Required</h1>
+            <p className="text-slate-600 text-xs max-w-md mx-auto leading-relaxed">
+              The IntelliCart Control Center is strictly restricted to administrative and staff accounts. 
+              Your current account ({currentUser?.name || 'User'} &bull; {currentUser?.email || 'Guest'}) does not have staff or administrator privileges.
+            </p>
+          </div>
+          <div>
+            <button
+              onClick={() => navigateTo('home')}
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-xs transition"
+            >
+              Return to Storefront
+            </button>
+          </div>
         </main>
       )}
       {/* Location Modal */}

@@ -3,11 +3,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import RiskAssessment
 from .serializers import RiskAssessmentSerializer
+from accounts.permissions import IsAdminOrStaffUser
 
 class RiskAssessmentViewSet(viewsets.ModelViewSet):
     queryset = RiskAssessment.objects.all()
     serializer_class = RiskAssessmentSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdminOrStaffUser]
 
     def get_queryset(self):
         queryset = RiskAssessment.objects.all()

@@ -3,8 +3,12 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+from accounts.views import AdminControlCenterView
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('admin-control-center/', AdminControlCenterView.as_view(), name='admin_control_center'),
+    path('api/v1/admin-control-center/', AdminControlCenterView.as_view(), name='api_admin_control_center'),
     
     # API endpoints
     path('api/v1/auth/', include('accounts.urls_auth')),

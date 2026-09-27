@@ -5,16 +5,21 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
 from products.models import Product
+from accounts.permissions import IsAdminOrStaffUser, is_admin_or_staff
 from .models import Order, OrderItem
 from .serializers import OrderSerializer
 
 class OrderViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
     serializer_class = OrderSerializer
+
+    def get_permissions(self):
+        if self.action in ['update', 'partial_update', 'destroy', 'update_pipeline']:
+            return [IsAdminOrStaffUser()]
+        return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'ADMIN' or user.is_staff:
+        if is_admin_or_staff(user):
             return Order.objects.all()
         return Order.objects.filter(user=user)
 
@@ -115,3 +120,13 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.save()
         serializer = self.get_serializer(order)
         return Response({'success': True, 'message': 'Order cancelled.', 'order': serializer.data})
+
+    @action(detail=True, methods=['post', 'patch'], permission_classes=[IsAdminOrStaffUser])
+    def update_pipeline(self, request, pk=None):
+        order = self.get_object()
+        new_status = request.data.get('status')
+        if new_status:
+            order.status = new_status
+            order.save()
+        serializer = self.get_serializer(order)
+        return Response({'success': True, 'message': 'Order pipeline updated.', 'order': serializer.data})
